@@ -1,0 +1,94 @@
+	# Orientando(a): Joao Vitor Nunes Santos 
+	# Orientador(a): Vagson Luiz Carvalho Santos
+
+beta:= 1 	//Razao b/a
+EMaior:= 1000e-9	//Eixo Maior
+EMenor:= EMaior*beta	//Eixo Menor
+
+cubo:= 2e-9	//Tamanho da celula
+
+Rext:= 30e-9 	//Raio externo
+l:= 10e-9 	//Espessura
+Rint:= Rext-l	//Raio Interno
+//h := Pi*e-9 
+
+imax:= 100
+
+h := Pi*(3*(EMaior + EMenor)-sqrt((3*EMaior+EMenor)*(EMaior+3*EMenor)))/(2*imax)
+
+SetGridsize(540, 540, 40)
+SetCellsize(cubo, cubo, cubo)
+
+
+
+cono := cylinder(0, 0)  // Geometria inicial
+
+
+for i:=0; i<=imax; i+=1{
+	theta := (i * Pi) / imax
+	Theta2:= atan(-(EMenor*cos(theta))/(EMaior*sin(theta)))
+	
+	a := cylinder(2 * Rext, h)   // Cilindro externo
+	b := cylinder(2 * Rint, h)   // Cilindro interno
+	c := ((a.sub(b)).rotx(Pi / 2)).rotz(Theta2+Pi/2)
+	Vx:= 0.5*EMaior*cos(theta)
+	Vy:= 0.5*EMenor*sin(theta)
+	d := c.transl(Vx, Vy, 0)
+	
+	cono = cono.add(d)
+	defregion(i, d)
+	// m.setRegion(i, uniform(1, 0, 0))
+	
+	
+}
+
+// Definir a magnetizacao inicial em regioes
+for i := 0; i <= 48; i += 1 {
+	theta := (i * Pi) / imax
+	Theta2:= atan(-(EMenor*cos(theta))/(EMaior*sin(theta)))
+	
+	m.setRegion(i, uniform(cos(Theta2+Pi), sin(Theta2+Pi), 0))
+}
+
+
+for j:= 260; j<=284; j=j+1{
+	for k:=270; k<=539; k=k+1{
+		for w:= 1; w<=39; w=w+1{
+			r:=index2coord(j,k,w)
+			x:=r.x()
+			y:=r.y()
+			z:=r.z()
+			phi := atan2(z,(y-0.5*EMenor))
+			
+			
+			mx := 0
+			my := sin(phi)
+			mz := -cos(phi)
+			m.setcell(j,k,w,vector(mx,my,mz))
+		}
+	}
+}
+
+
+
+for i := 52; i <= imax; i += 1 {
+	theta :=Pi- (i * Pi) / imax
+	Theta2:= atan(-(EMenor*cos(theta))/(EMaior*sin(theta)))
+	
+	m.setRegion(i,  uniform(cos(-Theta2), sin(-Theta2), 0))
+}
+
+setgeom(cono)
+saveas(geom, "imageShape")
+
+// Definir parametros de simulacao
+Aex = 1.3e-11
+Msat = 800e3
+alpha = 0.02
+
+save(m)
+//minimize()
+relax()  // Relaxar o sistema para o estado de energia minima
+saveas(m,"b100")
+
+

@@ -1,0 +1,126 @@
+	# Orientando(a): Joao Vitor Nunes Santos 
+	# Orientador(a): Vagson Luiz Carvalho Santos
+	
+beta:= 1 	//Razao b/a
+EMaior:= 1000e-9	//Eixo Maior
+EMenor:= EMaior*beta	//Eixo Menor
+
+cubo:= 2e-9	//Tamanho da celula
+
+OutputFormat = OVF2_TEXT
+Rext:= 30e-9 	//Raio externo
+l:= 10e-9 	//Espessura
+Rint:= Rext-l	//Raio Interno
+// h := Pi*20e-9 
+
+Nx:= 540
+Ny:= 540
+Nz:= 40
+
+Tx:= EMaior*0.5
+
+SetGridsize(Nx, Ny, Nz)
+SetCellsize(cubo, cubo, cubo)
+
+imax:= 100
+
+h := Pi*(3*(EMaior + EMenor)-sqrt((3*EMaior+EMenor)*(EMaior+3*EMenor)))/(2*imax)
+
+cono := cylinder(0, 0)  // Geometria inicial
+
+
+for i:=0; i<=imax; i+=1{
+	theta := (i * Pi) / imax
+	Theta2:= atan(-(EMenor*cos(theta))/(EMaior*sin(theta)))
+	
+	a := cylinder(2 * Rext, h)   // Cilindro externo
+	b := cylinder(2 * Rint, h)   // Cilindro interno
+	c := ((a.sub(b)).rotx(Pi / 2)).rotz(Theta2+Pi/2)
+	Vx:= 0.5*EMaior*cos(theta)
+	Vy:= 0.5*EMenor*sin(theta)
+	d := c.transl(Vx, Vy, 0)
+	
+	cono = cono.add(d)
+	defregion(i, d)
+	m.setRegion(i, uniform(1, 0, 0))
+	
+	
+}
+
+
+
+
+setgeom(cono)
+saveas(geom, "imageShape")
+
+//Magnetizacao
+
+m.loadfile("b100.ovf")
+saveas(m, "loadfile")
+
+// Definir parametros de simulacao
+Aex = 1.3e-11
+Msat = 800e3
+alpha = 0.02
+
+save(m)
+
+// Dinamica
+
+// Criar uma nova mascara de vetor para o campo magnetico
+Nxy := Nx
+mask := newVectorMask(Nx, Ny, Nz)
+
+// Preencher a mascara com vetores aleatorios
+for i := 0; i < Nx; i++ {
+	for j := 0; j < Ny; j++ {
+		for k := 0; k < Nz; k++ {
+			
+			r := index2coord(i, j, k)
+			x := r.x()
+			y := r.y()
+			z := r.z()
+			
+			theta2 := atan2(y, x) // Calcular o angulo de direcao
+			
+			// raio maior
+			R_mayor := sqrt(x*x + y*y)
+			
+			R1:= Tx - Rext
+			R2:= Tx + Rext
+			
+
+			R_menor := sqrt(z*z + (sqrt(x*x + y*y) - Tx)*(sqrt(x*x + y*y) - Tx))
+			
+			if (theta2 >= 0.0 && theta2 <= Pi && R_mayor >= R1 && R_mayor <= R2 && R_menor >= Rint && R_menor <= Rext) {
+				Bx := sin(theta2) // Campo magnetico na direcao x
+				By := -cos(theta2)  // Campo magnetico na direcao y
+				Bz := 0.0          // Campo magnetico na direcao z (zero)
+				
+				// Atribuindo o vetor de campo magnetico a mascara
+				mask.setVector(i, j, k, vector(Bx, By, Bz))
+			}
+		}
+	}
+}
+
+// Intensidade adicional do campo magnetico
+Hoff := 2.5e-3 // Intensidade adicional do campo, em Tesla
+B_ext.add(mask, Hoff) // Adicionar o campo magnetico externo a mascara
+
+save(B_ext)
+
+// Relaxar o sistema para o estado de energia minima
+autosave(m, 5e-10)
+tableautosave(5e-10)
+tableAdd(E_total)
+tableAdd(E_demag)
+tableAdd(E_exch)
+TableAdd(B_ext)
+
+
+
+// Executar a simulacao por 2e-9 segundos
+run(2e-9)
+
+	
